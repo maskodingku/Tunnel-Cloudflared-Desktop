@@ -26,8 +26,12 @@ cert.pem
 *.key
 *.pub
 
-# Config
+# Config & Credentials
 app_config.json
+test-creds.json
+*creds.json
+*credentials.json
+cloudflared-creds.json
 
 # Binaries/Executable
 *.exe
