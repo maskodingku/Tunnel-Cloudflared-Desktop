@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-devops-dark: #0f172a;
+  --color-devops-card: #1e293b;
+  --color-devops-accent: #3b82f6;
+  --color-devops-border: #334155;
+}
+
+@layer base {
+  body {
+    @apply bg-devops-dark text-slate-200 font-sans;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply flex items-center px-4 py-3 text-sm font-medium text-slate-400 rounded-xl transition-all duration-200 hover:bg-slate-800 hover:text-white;
+  }
+
+  .nav-link.active {
+    @apply bg-devops-accent/10 text-devops-accent;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-full hover:bg-slate-600;
+}

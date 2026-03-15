@@ -1,0 +1,22 @@
+{
+  "name": "tunnel-cloudflared-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A professional and lightweight desktop application for managing Cloudflare Tunnels.",
+  "type": "module",
+  "author": "Abdi Syahputra Harahap (MASKODING)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@tauri-apps/cli": "^2",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
+    "vite": "^6.4.1"
+  }
+}
