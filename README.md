@@ -18,6 +18,20 @@ A modern, high-performance desktop application for managing Cloudflare Tunnels w
 - 📦 **Portable EXE**: Standalone binary for easy distribution.
 - 🛡️ **Auto-Binary Management**: Automatically detects and downloads the correct `cloudflared` version for your OS.
 
+## Preview
+
+| Dashboard | Logs |
+| :---: | :---: |
+| ![Dashboard](image/ss-Dashboard.png) | ![Logs](image/ss-Logs.png) |
+
+| Quick Tunnels | Tunnel Connector |
+| :---: | :---: |
+| ![Quick Tunnels](image/ss-Quick-Tunnels.png) | ![Tunnel Connector](image/ss-Tunnel-Connector.png) |
+
+| Add Endpoint | Tunnel Endpoints |
+| :---: | :---: |
+| ![Add Endpoint](image/ss-add-endpoint.png) | ![Tunnel Endpoints](image/ss-list-Tunnel-Endpoints.png) |
+
 ## Technical Architecture
 
 The application leverages **Tauri v2** to provide a lightweight security-first alternative to Electron. It uses a bridge between a high-performance Rust backend and a modern Vanilla JS frontend.
