@@ -6,6 +6,11 @@ use crate::config::{CloudflareAccount, load_config, save_config};
 use crate::binary;
 use serde::{Deserialize, Serialize};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IngressRule {
     pub hostname: Option<String>,
@@ -35,8 +40,11 @@ pub async fn login_cloudflare_account(app_handle: AppHandle) -> Result<(), Strin
 
     // Run login command. This will open the browser.
     // We don't wait for it to finish because it's interactive in the browser.
-    Command::new(binary_path)
-        .arg("tunnel")
+    let mut cmd = Command::new(binary_path);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    
+    cmd.arg("tunnel")
         .arg("login")
         .spawn()
         .map_err(|e| format!("Failed to start login: {}", e))?;
@@ -101,7 +109,11 @@ pub async fn list_account_tunnels(app_handle: AppHandle, name: String) -> Result
         PathBuf::from(config.cloudflared_path)
     };
 
-    let output = Command::new(binary_path)
+    let mut cmd = Command::new(binary_path);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
         .arg("--origincert")
         .arg(&account.cert_path)
         .arg("tunnel")
@@ -167,7 +179,11 @@ pub async fn create_tunnel_via_account(app_handle: AppHandle, account_name: Stri
     // Ensure account dir exists
     fs::create_dir_all(&account_dir).map_err(|e| e.to_string())?;
 
-    let create_output = Command::new(&binary_path)
+    let mut cmd = Command::new(&binary_path);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let create_output = cmd
         .arg("--origincert")
         .arg(&account.cert_path)
         .arg("tunnel")
@@ -230,7 +246,11 @@ pub async fn delete_remote_tunnel(app_handle: AppHandle, account_name: String, t
     };
 
     // Run tunnel delete -f <name>
-    let output = Command::new(binary_path)
+    let mut cmd = Command::new(binary_path);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
         .arg("--origincert")
         .arg(&account.cert_path)
         .arg("tunnel")
@@ -261,7 +281,11 @@ pub async fn add_tunnel_dns_route(app_handle: AppHandle, account_name: String, t
     };
 
     // Run tunnel route dns <tunnel_name> <hostname>
-    let output = Command::new(binary_path)
+    let mut cmd = Command::new(binary_path);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
         .arg("--origincert")
         .arg(&account.cert_path)
         .arg("tunnel")

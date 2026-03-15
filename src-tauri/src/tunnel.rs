@@ -8,6 +8,9 @@ use serde::Serialize;
 use std::time::Duration;
 use tokio::time::sleep;
 
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Clone, Serialize)]
 struct LogPayload {
     tunnel_name: String,
@@ -55,6 +58,10 @@ impl TunnelProcessManager {
         }
 
         let mut cmd = Command::new(binary_path);
+
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
         cmd.arg("tunnel");
         cmd.arg("--metrics");
         cmd.arg("127.0.0.1:0");
@@ -144,7 +151,12 @@ impl TunnelProcessManager {
             return Err(format!("Quick Tunnel '{}' is already running", name));
         }
 
-        let mut child = Command::new(binary_path)
+        let mut cmd = Command::new(binary_path);
+
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let mut child = cmd
             .args(["tunnel", "--metrics", "127.0.0.1:0", "--url", &target_url])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

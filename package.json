@@ -1,7 +1,7 @@
 {
   "name": "tunnel-cloudflared-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A professional and lightweight desktop application for managing Cloudflare Tunnels.",
   "type": "module",
   "author": "Abdi Syahputra Harahap (MASKODING)",
