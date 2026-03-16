@@ -1,4 +1,4 @@
-# Tunnel Cloudflared Desktop v1.0.0
+# Tunnel Cloudflared Desktop
 
 A modern, high-performance desktop application for managing Cloudflare Tunnels with ease. Built with **Tauri**, **Rust**, and **Vanilla JavaScript**.
 
