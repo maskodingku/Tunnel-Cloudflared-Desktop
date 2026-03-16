@@ -32,6 +32,7 @@ test-creds.json
 *creds.json
 *credentials.json
 cloudflared-creds.json
+catatan-update.md
 
 # Binaries/Executable
 *.exe

@@ -485,17 +485,34 @@ window.showAddAccountModal = () => {
                 <h3 class="text-lg font-bold text-white">Add Cloudflare Account</h3>
                 <button id="modal-close" class="text-slate-400 hover:text-white">&times;</button>
             </div>
-            <div class="p-6 space-y-4">
-                <p class="text-xs text-slate-400">Step 1: Click the button below to authorize this application in your browser.</p>
-                <button id="btn-start-login" class="w-full bg-devops-accent text-white font-bold py-3 rounded-xl hover:bg-blue-600 transition-all">
-                    Login via Browser
-                </button>
+            <div id="modal-body" class="p-6 space-y-4">
+                <div id="step-initial" class="space-y-4">
+                  <p class="text-xs text-slate-400">Step 1: Click the button below to authorize this application in your browser.</p>
+                  <button id="btn-start-login" class="w-full bg-devops-accent text-white font-bold py-3 rounded-xl hover:bg-blue-600 transition-all">
+                      Login via Browser
+                  </button>
+                </div>
+
+                <div id="step-1" class="hidden space-y-4">
+                    <p class="text-xs text-slate-400">Step 1: System has generated a login URL. Please visit it to authorize.</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="login-url" disabled class="flex-1 bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white text-xs opacity-50 select-all" value="">
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn-copy-url" class="flex-1 bg-slate-700 text-white font-bold py-2 rounded-lg hover:bg-slate-600 transition-all text-xs">Copy</button>
+                        <button id="btn-visit-url" class="flex-1 bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-500 transition-all text-xs">Visit</button>
+                    </div>
+                    <p id="login-status" class="text-xs text-yellow-500 font-bold animate-pulse text-center">Waiting for login...</p>
+                </div>
                 
-                <div id="finalize-step" class="hidden space-y-4 pt-4 border-t border-devops-border">
-                    <p class="text-xs text-slate-400 font-bold">Step 2: After login is successful in browser, give this account an alias name.</p>
-                    <input type="text" id="account-alias" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-devops-accent" placeholder="e.g. My Personal Account">
+                <div id="step-2" class="hidden space-y-4">
+                    <div class="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
+                        <p class="text-[10px] font-bold text-green-500 uppercase">Login Successful! ✓</p>
+                    </div>
+                    <p class="text-xs text-slate-400 font-bold">Step 2: Give this account a personal name (e.g. My Account).</p>
+                    <input type="text" id="account-alias" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-devops-accent" placeholder="Personal name (optional)">
                     <button id="btn-finalize" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-500 transition-all">
-                        Finalize & Add Account
+                        Save & Finish
                     </button>
                 </div>
             </div>
@@ -504,30 +521,67 @@ window.showAddAccountModal = () => {
 
   document.body.appendChild(modal);
 
-  const close = () => modal.remove();
+  const close = () => {
+    if (window.loginPollInterval) clearInterval(window.loginPollInterval);
+    api.abortCloudflareLogin();
+    modal.remove();
+  };
   document.getElementById('modal-close').onclick = close;
 
+  const initialStep = document.getElementById('step-initial');
+  const step1 = document.getElementById('step-1');
+  const step2 = document.getElementById('step-2');
   const startBtn = document.getElementById('btn-start-login');
-  const finalizeStep = document.getElementById('finalize-step');
+  const loginUrlInput = document.getElementById('login-url');
+  const copyBtn = document.getElementById('btn-copy-url');
+  const visitBtn = document.getElementById('btn-visit-url');
+  const loginStatus = document.getElementById('login-status');
   const finalizeBtn = document.getElementById('btn-finalize');
 
   startBtn.onclick = async () => {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Generating URL...';
     try {
-      await api.loginCloudflareAccount();
-      startBtn.textContent = 'Login Initiated...';
-      startBtn.classList.replace('bg-devops-accent', 'bg-slate-700');
-      finalizeStep.classList.remove('hidden');
+      const url = await api.loginCloudflareAccount();
+      loginUrlInput.value = url;
+      initialStep.classList.add('hidden');
+      step1.classList.remove('hidden');
+
+      // Start polling for cert.pem
+      window.loginPollInterval = setInterval(async () => {
+        const exists = await api.checkLoginCertExists();
+        if (exists) {
+          clearInterval(window.loginPollInterval);
+          step1.classList.add('hidden');
+          step2.classList.remove('hidden');
+        }
+      }, 1500);
+
     } catch (e) {
       alert('Failed to start login: ' + e);
+      startBtn.disabled = false;
+      startBtn.textContent = 'Login via Browser';
     }
   };
 
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(loginUrlInput.value);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+  };
+
+  visitBtn.onclick = () => {
+    api.openUrl(loginUrlInput.value);
+  };
+
   finalizeBtn.onclick = async () => {
-    const name = document.getElementById('account-alias').value.trim();
-    if (!name) return alert('Please enter an account alias');
+    let name = document.getElementById('account-alias').value.trim();
+    if (!name) {
+      name = 'Account-' + Math.floor(Math.random() * 10000);
+    }
 
     finalizeBtn.disabled = true;
-    finalizeBtn.textContent = 'Verifying...';
+    finalizeBtn.textContent = 'Finalizing...';
     try {
       await api.finalizeCloudflareLogin(name);
       state.config = await api.getConfig();
@@ -536,7 +590,7 @@ window.showAddAccountModal = () => {
     } catch (e) {
       alert('Failed to finalize login: ' + e);
       finalizeBtn.disabled = false;
-      finalizeBtn.textContent = 'Finalize & Add Account';
+      finalizeBtn.textContent = 'Save & Finish';
     }
   };
 };
@@ -558,11 +612,25 @@ window.viewAccountTunnels = async (name) => {
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${name}</p>
                     </div>
                 </div>
-                <button id="modal-close" class="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="btn-sync-all" class="px-4 py-2 bg-devops-accent/10 hover:bg-devops-accent text-devops-accent hover:text-white text-[10px] font-bold rounded-xl border border-devops-accent/20 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Sync All Tunnels to App
+                    </button>
+                    <button id="modal-close" class="p-2 hover:bg-white/10 rounded-xl text-slate-400 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="sync-progress" class="hidden px-6 py-3 bg-devops-accent/5 border-b border-devops-border animate-in slide-in-from-top-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-4 h-4 border-2 border-devops-accent border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-[10px] font-bold text-devops-accent uppercase tracking-widest">Syincing tunnels & fetching tokens...</span>
+                </div>
             </div>
             <div id="tunnels-list-container" class="flex-1 overflow-auto">
                 <div class="flex items-center justify-center py-24">
@@ -577,6 +645,25 @@ window.viewAccountTunnels = async (name) => {
 
   document.body.appendChild(modal);
   document.getElementById('modal-close').onclick = () => modal.remove();
+
+  const syncAllBtn = document.getElementById('btn-sync-all');
+  const syncProgress = document.getElementById('sync-progress');
+
+  syncAllBtn.onclick = async () => {
+    syncAllBtn.disabled = true;
+    syncProgress.classList.remove('hidden');
+    try {
+      await api.syncAccountTunnels(name);
+      state.config = await api.getConfig();
+      if (state.currentView === 'tunnels') renderTunnels();
+      alert('Tunnels synced successfully!');
+    } catch (err) {
+      alert('Sync failed: ' + err);
+    } finally {
+      syncAllBtn.disabled = false;
+      syncProgress.classList.add('hidden');
+    }
+  };
 
   try {
     const rawOutput = await api.listAccountTunnels(name);
@@ -959,13 +1046,13 @@ window.showEndpointsModal = async (tunnelName) => {
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button id="btn-fetch-cloud" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-2" title="Cloud -> App: Overwrite local config with remote settings">
+                    <button id="btn-fetch-cloud" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-2" title="Cloud -> App: Fetch remote settings and save to local .yml config">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                         </svg>
                         Fetch
                     </button>
-                    <button id="btn-push-cloud" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-2" title="App -> Cloud: Update dashboard with local ingress rules">
+                    <button id="btn-push-cloud" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-2" title="App -> Cloud: Upload local .yml config to Cloudflare Dashboard">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
                         </svg>
@@ -989,7 +1076,7 @@ window.showEndpointsModal = async (tunnelName) => {
             </div>
             <div class="p-4 bg-devops-dark/30 border-t border-devops-border">
                 <p class="text-[9px] text-slate-500 italic text-center">
-                    Endpoints sync with local <span class="text-slate-400 font-mono">config.yml</span>. Manual changes on Cloudflare dashboard require "Sync".
+                    Endpoints sync with local <span class="text-slate-400 font-mono">config.yml</span>. Cloudflare management via API & File.
                 </p>
             </div>
         </div>
@@ -1012,7 +1099,12 @@ window.showEndpointsModal = async (tunnelName) => {
     `;
 
     try {
-      const endpoints = await api.getTunnelEndpoints(tunnel.config_file);
+      const account = state.config.accounts.find(a => a.name === tunnel.account_tag);
+      const endpoints = await api.getTunnelEndpoints(
+        tunnel.config_file || "",
+        account ? account.cert_path : null,
+        tunnel.id
+      );
       if (!endpoints || endpoints.length === 0) {
         container.innerHTML = `
               <div class="flex flex-col items-center justify-center py-16 text-center">
@@ -1093,10 +1185,15 @@ window.showEndpointsModal = async (tunnelName) => {
     if (!confirm(`Are you sure you want to delete endpoint "${hostname}"?`)) return;
 
     try {
-      await api.deleteTunnelEndpoint(tunnel.config_file, hostname);
+      const account = state.config.accounts.find(a => a.name === tunnel.account_tag);
+      await api.deleteTunnelEndpoint(
+        tunnel.config_file || "",
+        hostname,
+        account ? account.cert_path : null,
+        tunnel.id
+      );
 
       // Push deletion to Cloudflare dashboard
-      const account = state.config.accounts.find(a => a.name === tunnel.account_tag);
       if (account) {
         try {
           await api.pushTunnelConfig(account.cert_path, tunnel.config_file);
@@ -1134,13 +1231,25 @@ window.showEndpointsModal = async (tunnelName) => {
       return;
     }
 
-    fetchBtn.disabled = true;
-    pushBtn.disabled = true;
+    if (fetchBtn) fetchBtn.disabled = true;
+    if (pushBtn) pushBtn.disabled = true;
     syncStatus.classList.remove('hidden');
     syncStatus.innerHTML = `<p class="text-[9px] text-blue-400 animate-pulse font-bold uppercase tracking-widest">🔄 Fetching from Cloudflare...</p>`;
 
     try {
-      await api.syncTunnelEndpoints(account.cert_path, tunnel.id || null, tunnel.config_file);
+      const result = await api.syncTunnelEndpoints(account.cert_path, tunnel.id || "", tunnelName || tunnel.name, tunnel.config_file || "");
+
+      // Update config_file if it was created
+      if (!tunnel.config_file && result.config_file) {
+        tunnel.config_file = result.config_file;
+        const configTunnel = state.config.tunnels.find(t =>
+          (t.id && t.id === tunnel.id) || t.name === tunnel.name
+        );
+        if (configTunnel) {
+          configTunnel.config_file = result.config_file;
+          await api.saveConfig(state.config);
+        }
+      }
 
       // Auto-restart if running
       if (tunnel.status === 'running') {
@@ -1156,8 +1265,8 @@ window.showEndpointsModal = async (tunnelName) => {
       alert('Fetch failed: ' + err);
       syncStatus.classList.add('hidden');
     } finally {
-      fetchBtn.disabled = false;
-      pushBtn.disabled = false;
+      if (fetchBtn) fetchBtn.disabled = false;
+      if (pushBtn) pushBtn.disabled = false;
     }
   };
 
@@ -1168,31 +1277,34 @@ window.showEndpointsModal = async (tunnelName) => {
       return;
     }
 
-    fetchBtn.disabled = true;
-    pushBtn.disabled = true;
+    if (fetchBtn) fetchBtn.disabled = true;
+    if (pushBtn) pushBtn.disabled = true;
     syncStatus.classList.remove('hidden');
     syncStatus.innerHTML = `<p class="text-[9px] text-blue-400 animate-pulse font-bold uppercase tracking-widest">🔼 Pushing to Cloudflare...</p>`;
 
     try {
-      await api.pushTunnelConfig(account.cert_path, tunnel.config_file);
+      await api.pushTunnelConfig(account.cert_path, tunnel.config_file || "");
       syncStatus.innerHTML = `<p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">✅ Dashboard updated successfully!</p>`;
       setTimeout(() => syncStatus.classList.add('hidden'), 2000);
     } catch (err) {
       alert('Push failed: ' + err);
       syncStatus.classList.add('hidden');
     } finally {
-      fetchBtn.disabled = false;
-      pushBtn.disabled = false;
+      if (fetchBtn) fetchBtn.disabled = false;
+      if (pushBtn) pushBtn.disabled = false;
     }
   };
 
-  document.getElementById('modal-close').onclick = () => modal.remove();
+  document.getElementById('modal-close').onclick = () => {
+    modal.remove();
+    renderTunnels(); // Refresh sidebar to show new config status
+  };
   document.getElementById('btn-add-endpoint-trigger').onclick = () => {
     modal.remove();
     showAddEndpointModal(tunnelName, tunnel.account_tag);
   };
-  fetchBtn.onclick = handleFetch;
-  pushBtn.onclick = handlePush;
+  if (fetchBtn) fetchBtn.onclick = handleFetch;
+  if (pushBtn) pushBtn.onclick = handlePush;
 
   refreshList();
 };
@@ -1453,43 +1565,41 @@ window.showAddEndpointModal = (tunnelName, accountName) => {
       // 1. Always create DNS Route via CLI (Zero-token)
       await api.addTunnelDnsRoute(accountName, tunnelName, hostname);
 
-      // 2. Update local config.yml (Zero-token)
-      if (tunnel.config_file) {
-        submitBtn.textContent = 'Updating Local Config...';
-        await api.updateLocalTunnelIngress(
-          tunnel.config_file,
-          hostname,
-          protocol,
-          destHost,
-          port
-        );
+      // 2. Update ingress mapping
+      const account = state.config.accounts.find(a => a.name === (tunnel.account_tag || accountName));
+      submitBtn.textContent = tunnel.config_file ? 'Updating Local Config...' : 'Pushing to Cloudflare API...';
 
-        // 3. Push config to Cloudflare dashboard
-        const account = state.config.accounts.find(a => a.name === accountName);
-        if (account) {
-          submitBtn.textContent = 'Syncing to Cloudflare...';
-          try {
-            await api.pushTunnelConfig(account.cert_path, tunnel.config_file);
-          } catch (pushErr) {
-            console.warn('Push to Cloudflare dashboard failed (non-fatal):', pushErr);
-          }
+      await api.updateLocalTunnelIngress(
+        tunnel.config_file || "",
+        hostname,
+        protocol,
+        destHost,
+        port,
+        account ? account.cert_path : null,
+        tunnel.id
+      );
+
+      // 3. Push config to Cloudflare dashboard if a config file exists
+      if (tunnel.config_file) {
+        try {
+          await api.pushTunnelConfig(account ? account.cert_path : "", tunnel.config_file);
+        } catch (pushErr) {
+          console.warn('Push to Cloudflare dashboard failed (non-fatal):', pushErr);
         }
       }
 
-      // 3. Auto-restart tunnel if running so new config is picked up
+      // 4. Auto-restart tunnel if running so new config is picked up
       let wasRestarted = false;
       if (tunnel.status === 'running') {
         submitBtn.textContent = 'Restarting Tunnel...';
         try {
           await api.stopTunnel(tunnelName);
-          // Small delay to let the process fully stop
           await new Promise(resolve => setTimeout(resolve, 1500));
           await api.startTunnel(tunnelName, tunnel.token || '');
           tunnel.status = 'running';
           wasRestarted = true;
         } catch (restartErr) {
           console.warn('Auto-restart failed:', restartErr);
-          // Don't fail the whole operation, endpoint was still added
         }
       }
 

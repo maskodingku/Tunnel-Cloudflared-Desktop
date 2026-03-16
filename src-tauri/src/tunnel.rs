@@ -34,12 +34,32 @@ pub struct TunnelMetrics {
 
 pub struct TunnelProcessManager {
     processes: Arc<Mutex<HashMap<String, Child>>>,
+    login_process: Arc<Mutex<Option<Child>>>,
 }
 
 impl TunnelProcessManager {
     pub fn new() -> Self {
         Self {
             processes: Arc::new(Mutex::new(HashMap::new())),
+            login_process: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn set_login_process(&self, child: Child) {
+        if let Ok(mut lock) = self.login_process.lock() {
+            // If there's an old one, kill it
+            if let Some(mut old) = lock.take() {
+                let _ = old.start_kill();
+            }
+            *lock = Some(child);
+        }
+    }
+
+    pub fn abort_login_process(&self) {
+        if let Ok(mut lock) = self.login_process.lock() {
+            if let Some(mut child) = lock.take() {
+                let _ = child.start_kill();
+            }
         }
     }
 
@@ -66,10 +86,12 @@ impl TunnelProcessManager {
         cmd.arg("--metrics");
         cmd.arg("127.0.0.1:0");
 
-        if let Some(cfg) = config_file {
+        if !token.is_empty() {
+            cmd.args(["run", "--token", &token]);
+        } else if let Some(cfg) = config_file {
             cmd.args(["--config", &cfg, "run"]);
         } else {
-            cmd.args(["run", "--token", &token]);
+            return Err("No token or config file found to start the tunnel".to_string());
         }
 
         let mut child = cmd

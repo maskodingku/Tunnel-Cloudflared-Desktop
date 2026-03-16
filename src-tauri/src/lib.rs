@@ -11,7 +11,8 @@ use accounts::{
     list_account_tunnels, remove_cloudflare_account, create_tunnel_via_account, 
     delete_remote_tunnel, add_tunnel_dns_route, update_local_tunnel_ingress, 
     get_tunnel_endpoints, delete_tunnel_endpoint, sync_tunnel_endpoints,
-    push_tunnel_config
+    push_tunnel_config, check_login_cert_exists, abort_cloudflare_login,
+    sync_account_tunnels
 };
 
 #[tauri::command]
@@ -148,20 +149,23 @@ pub fn run() {
             stop_tunnel,
             open_binary_folder,
             login_cloudflare_account,
+            abort_cloudflare_login,
             finalize_cloudflare_login,
-            list_account_tunnels,
+            check_login_cert_exists,
             list_cloudflare_accounts,
+            list_account_tunnels,
+            sync_account_tunnels,
             remove_cloudflare_account,
             create_tunnel_via_account,
             delete_remote_tunnel,
             add_tunnel_dns_route,
-                update_local_tunnel_ingress,
-                get_tunnel_endpoints,
-                delete_tunnel_endpoint,
-                sync_tunnel_endpoints,
-                push_tunnel_config,
-                open_external_url
-            ])
+            update_local_tunnel_ingress,
+            get_tunnel_endpoints,
+            delete_tunnel_endpoint,
+            sync_tunnel_endpoints,
+            push_tunnel_config,
+            open_external_url
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
