@@ -800,7 +800,7 @@ window.toggleQuickTunnel = async (id, status) => {
     } else {
       if (qt) {
         qt.status = 'starting';
-        await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`);
+        await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`, qt.no_tls_verify || false);
       }
     }
     await api.saveConfig(state.config);
@@ -882,6 +882,18 @@ window.showEditQuickTunnelModal = (id) => {
                         <input type="text" name="hostname" required value="${qt.hostname}" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-devops-accent transition-colors">
                     </div>
                 </div>
+                <div id="no-tls-wrapper" class="${qt.protocol === 'https' ? '' : 'hidden'} space-y-2 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Skip HTTPS Security</label>
+                            <p class="text-[9px] text-slate-400 mt-1">Lewati pengecekan keamanan HTTPS. Aktifkan ini jika aplikasi kamu pakai HTTPS lokal (localhost) tapi muncul error.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="no_tls_verify" class="sr-only peer" ${qt.no_tls_verify ? 'checked' : ''}>
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-devops-accent"></div>
+                        </label>
+                    </div>
+                </div>
                 <div>
                     <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Local Port</label>
                     <input type="number" name="port" required value="${qt.port}" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-devops-accent transition-colors">
@@ -907,6 +919,12 @@ window.showEditQuickTunnelModal = (id) => {
   document.getElementById('modal-close').onclick = close;
   document.getElementById('modal-cancel').onclick = close;
 
+  const protocolSelect = modal.querySelector('select[name="protocol"]');
+  const noTlsWrapper = modal.querySelector('#no-tls-wrapper');
+  protocolSelect.addEventListener('change', (e) => {
+    noTlsWrapper.classList.toggle('hidden', e.target.value !== 'https');
+  });
+
   document.getElementById('edit-quick-form').onsubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -922,6 +940,7 @@ window.showEditQuickTunnelModal = (id) => {
     qt.protocol = formData.get('protocol');
     qt.hostname = formData.get('hostname');
     qt.port = parseInt(formData.get('port'));
+    qt.no_tls_verify = formData.has('no_tls_verify');
     qt.public_url = ''; // Reset public URL as it will change
     qt.status = 'stopped';
 
@@ -931,7 +950,7 @@ window.showEditQuickTunnelModal = (id) => {
     // 4. Restart if it was running
     if (wasRunning) {
       qt.status = 'starting';
-      await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`);
+      await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`, qt.no_tls_verify);
     }
 
     close();
@@ -966,6 +985,18 @@ function showAddQuickTunnelModal() {
                         <input type="text" name="hostname" required value="localhost" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500/50 transition-colors">
                     </div>
                 </div>
+                <div id="no-tls-wrapper-add" class="hidden space-y-2 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Skip HTTPS Security</label>
+                            <p class="text-[9px] text-slate-400 mt-1">Lewati pengecekan keamanan HTTPS. Aktifkan ini jika aplikasi kamu pakai HTTPS lokal (localhost) tapi muncul error.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="no_tls_verify" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-devops-accent"></div>
+                        </label>
+                    </div>
+                </div>
                 <div>
                     <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Local Port</label>
                     <input type="number" name="port" required class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500/50 transition-colors" placeholder="8080">
@@ -984,6 +1015,12 @@ function showAddQuickTunnelModal() {
   const close = () => modal.remove();
   document.getElementById('modal-close').onclick = close;
 
+  const protocolSelect = modal.querySelector('select[name="protocol"]');
+  const noTlsWrapper = modal.querySelector('#no-tls-wrapper-add');
+  protocolSelect.addEventListener('change', (e) => {
+    noTlsWrapper.classList.toggle('hidden', e.target.value !== 'https');
+  });
+
   document.getElementById('add-quick-form').onsubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -994,6 +1031,7 @@ function showAddQuickTunnelModal() {
       protocol: formData.get('protocol'),
       hostname: formData.get('hostname'),
       port: parseInt(formData.get('port')),
+      no_tls_verify: formData.has('no_tls_verify'),
       public_url: '',
       status: 'stopped'
     };

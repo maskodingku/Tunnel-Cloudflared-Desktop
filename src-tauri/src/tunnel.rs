@@ -166,6 +166,7 @@ impl TunnelProcessManager {
         name: String,
         target_url: String,
         binary_path: String,
+        no_tls_verify: bool,
     ) -> Result<(), String> {
         let mut processes = self.processes.lock().map_err(|e| e.to_string())?;
         
@@ -178,8 +179,13 @@ impl TunnelProcessManager {
         #[cfg(windows)]
         cmd.creation_flags(CREATE_NO_WINDOW);
 
+        let mut args = vec!["tunnel", "--metrics", "127.0.0.1:0", "--url", &target_url];
+        if no_tls_verify {
+            args.push("--no-tls-verify");
+        }
+
         let mut child = cmd
-            .args(["tunnel", "--metrics", "127.0.0.1:0", "--url", &target_url])
+            .args(&args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()

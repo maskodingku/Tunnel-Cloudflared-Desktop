@@ -67,6 +67,7 @@ async fn start_quick_tunnel(
     id: String,
     name: String,
     url: String,
+    no_tls_verify: bool,
 ) -> Result<(), String> {
     let config = config::load_config(&app_handle);
     let binary_path = if config.cloudflared_path.is_empty() {
@@ -79,7 +80,7 @@ async fn start_quick_tunnel(
         return Err("Cloudflared binary not found. Please download it first.".to_string());
     }
 
-    state.start_quick_tunnel(app_handle, id, name, url, binary_path).await
+    state.start_quick_tunnel(app_handle, id, name, url, binary_path, no_tls_verify).await
 }
 
 #[tauri::command]

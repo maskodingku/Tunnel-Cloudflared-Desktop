@@ -1,6 +1,6 @@
 [package]
 name = "tunnel-cloudflared-desktop"
-version = "1.2.0"
+version = "1.3.0"
 description = "A professional and lightweight desktop application for managing Cloudflare Tunnels."
 authors = ["Abdi Syahputra Harahap (MASKODING)"]
 edition = "2021"

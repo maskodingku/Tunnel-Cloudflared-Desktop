@@ -23,6 +23,8 @@ pub struct QuickTunnelConfig {
     pub port: u16,
     pub public_url: String,
     pub status: String,
+    #[serde(default)]
+    pub no_tls_verify: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
