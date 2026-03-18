@@ -167,6 +167,7 @@ impl TunnelProcessManager {
         target_url: String,
         binary_path: String,
         no_tls_verify: bool,
+        http_host_header: String,
     ) -> Result<(), String> {
         let mut processes = self.processes.lock().map_err(|e| e.to_string())?;
         
@@ -182,6 +183,10 @@ impl TunnelProcessManager {
         let mut args = vec!["tunnel", "--metrics", "127.0.0.1:0", "--url", &target_url];
         if no_tls_verify {
             args.push("--no-tls-verify");
+        }
+        if !http_host_header.is_empty() {
+            args.push("--http-host-header");
+            args.push(&http_host_header);
         }
 
         let mut child = cmd

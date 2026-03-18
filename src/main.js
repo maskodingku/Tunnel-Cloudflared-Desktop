@@ -1,5 +1,7 @@
 import { api } from './js/api.js';
 
+const CURRENT_VERSION = '1.4.0';
+
 // State Management
 const state = {
   config: null,
@@ -32,6 +34,7 @@ async function init() {
 
   setupNav();
   setupSocialLinks();
+  setupUpdateCheck();
   renderView('dashboard');
 
   api.onMetrics((metrics) => {
@@ -104,6 +107,143 @@ function setupNav() {
       renderView(view);
     });
   });
+}
+
+function setupUpdateCheck() {
+  const btn = document.getElementById('btn-check-update');
+  if (!btn) return;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    checkUpdate();
+  });
+}
+
+async function checkUpdate() {
+  const modal = showUpdateModal('loading');
+
+  try {
+    const response = await fetch('https://api.github.com/repos/maskodingku/Tunnel-Cloudflared-Desktop/releases/latest');
+    if (!response.ok) throw new Error('Network response was not ok');
+
+    const data = await response.json();
+    const latestVersion = data.tag_name.replace('v', '');
+    const repoUrl = data.html_url;
+
+    if (latestVersion === CURRENT_VERSION) {
+      showUpdateModal('up-to-date', { modal });
+    } else {
+      showUpdateModal('available', { modal, version: data.tag_name, url: repoUrl });
+    }
+  } catch (error) {
+    console.error('Update check failed:', error);
+    showUpdateModal('error', { modal });
+  }
+}
+
+function showUpdateModal(status, options = {}) {
+  let modal = options.modal;
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300';
+    document.body.appendChild(modal);
+  }
+
+  const close = () => modal.remove();
+
+  let content = '';
+  if (status === 'loading') {
+    content = `
+      <div class="bg-devops-card border border-devops-border rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl">
+        <div class="flex flex-col items-center gap-4">
+          <div class="w-12 h-12 border-4 border-devops-accent/20 border-t-devops-accent rounded-full animate-spin"></div>
+          <div>
+            <h3 class="text-xl font-bold text-white">Checking Updates</h3>
+            <p class="text-slate-400 text-sm mt-1">Please wait a moment...</p>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (status === 'up-to-date') {
+    content = `
+      <div class="bg-devops-card border border-devops-border rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+        <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3 class="text-xl font-bold text-white">Up to Date</h3>
+        <p class="text-slate-400 text-sm mt-2">You are using the latest version (v${CURRENT_VERSION})</p>
+        <button id="modal-close-update" class="mt-6 w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all">Dismiss</button>
+      </div>
+    `;
+  } else if (status === 'available') {
+    content = `
+      <div class="bg-devops-card border border-devops-border rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+        <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </div>
+        <h3 class="text-xl font-bold text-white">Update Available</h3>
+        <p class="text-slate-400 text-sm mt-2">Version <span class="text-blue-400 font-bold">${options.version}</span> is now available.</p>
+        
+        <div class="grid grid-cols-1 gap-3 mt-6">
+          <button id="btn-open-release" class="py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20">Open Release Page</button>
+          <button id="btn-copy-release" class="py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all">Copy Link</button>
+          <button id="modal-close-update" class="py-2 text-slate-500 hover:text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Maybe Later</button>
+        </div>
+      </div>
+    `;
+  } else if (status === 'error') {
+    content = `
+      <div class="bg-devops-card border border-devops-border rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+        <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
+        <h3 class="text-xl font-bold text-white">Check Failed</h3>
+        <p class="text-slate-400 text-sm mt-2">Unable to connect to GitHub. Please check your internet connection.</p>
+        <div class="grid grid-cols-1 gap-3 mt-6">
+          <button id="btn-retry-update" class="py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold rounded-xl transition-all">Try Again</button>
+          <button id="modal-close-update" class="py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all">Close</button>
+        </div>
+      </div>
+    `;
+  }
+
+  modal.innerHTML = content;
+
+  // Event Listeners
+  const closeBtn = modal.querySelector('#modal-close-update');
+  if (closeBtn) closeBtn.onclick = close;
+
+  const copyBtn = modal.querySelector('#btn-copy-release');
+  if (copyBtn) {
+    copyBtn.onclick = async () => {
+      await navigator.clipboard.writeText(options.url);
+      copyBtn.textContent = 'Copied!';
+      copyBtn.classList.replace('bg-slate-800', 'bg-green-500/20');
+      copyBtn.classList.replace('text-white', 'text-green-500');
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy Link';
+        copyBtn.classList.replace('bg-green-500/20', 'bg-slate-800');
+        copyBtn.classList.replace('text-green-500', 'text-white');
+      }, 2000);
+    };
+  }
+
+  const openBtn = modal.querySelector('#btn-open-release');
+  if (openBtn) {
+    openBtn.onclick = () => {
+      api.openUrl(options.url);
+      close();
+    };
+  }
+
+  const retryBtn = modal.querySelector('#btn-retry-update');
+  if (retryBtn) {
+    retryBtn.onclick = () => {
+      close();
+      checkUpdate();
+    };
+  }
+
+  return modal;
 }
 
 function setupSocialLinks() {
@@ -800,7 +940,7 @@ window.toggleQuickTunnel = async (id, status) => {
     } else {
       if (qt) {
         qt.status = 'starting';
-        await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`, qt.no_tls_verify || false);
+        await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`, qt.no_tls_verify || false, qt.http_host_header || '');
       }
     }
     await api.saveConfig(state.config);
@@ -898,6 +1038,25 @@ window.showEditQuickTunnelModal = (id) => {
                     <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Local Port</label>
                     <input type="number" name="port" required value="${qt.port}" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-devops-accent transition-colors">
                 </div>
+                <div class="space-y-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Enable Host Header Override</label>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="enable-host-override-edit" class="sr-only peer" ${qt.http_host_header ? 'checked' : ''}>
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                        </label>
+                    </div>
+                    <div id="host-override-wrapper-edit" class="${qt.http_host_header ? '' : 'hidden'} space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Host Header Override</label>
+                            <button type="button" id="btn-use-hostname-edit" class="text-[9px] text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider">Use Hostname</button>
+                        </div>
+                        <input type="text" name="http_host_header" value="${qt.http_host_header || ''}" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-2 text-white text-xs focus:outline-none focus:border-devops-accent transition-colors" placeholder="contoh: www.google.com">
+                        <p class="text-[9px] text-slate-400 leading-tight">Ubah header Host yang dikirim ke server tujuan. Gunakan jika server membutuhkan domain tertentu agar dapat merespons dengan benar.</p>
+                    </div>
+                </div>
                 <div>
                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Public URL (Readonly)</label>
                    <input type="text" readonly value="${qt.public_url || '-- Offline --'}" class="w-full bg-devops-dark/50 border border-devops-border rounded-xl px-4 py-2 text-[10px] text-slate-500 font-mono focus:outline-none cursor-not-allowed">
@@ -925,6 +1084,28 @@ window.showEditQuickTunnelModal = (id) => {
     noTlsWrapper.classList.toggle('hidden', e.target.value !== 'https');
   });
 
+  const hostOverrideToggle = modal.querySelector('#enable-host-override-edit');
+  const hostOverrideWrapper = modal.querySelector('#host-override-wrapper-edit');
+  const hostOverrideInput = modal.querySelector('input[name="http_host_header"]');
+  const useHostnameBtn = modal.querySelector('#btn-use-hostname-edit');
+  const hostnameInput = modal.querySelector('input[name="hostname"]');
+
+  hostOverrideToggle.addEventListener('change', (e) => {
+    hostOverrideWrapper.classList.toggle('hidden', !e.target.checked);
+    if (!e.target.checked) hostOverrideInput.value = '';
+  });
+
+  useHostnameBtn.addEventListener('click', () => {
+    hostOverrideInput.value = hostnameInput.value;
+  });
+
+  // Validation
+  hostOverrideInput.addEventListener('input', (e) => {
+    let val = e.target.value.replace(/https?:\/\//i, ''); // Remove protocol
+    val = val.split(':')[0]; // Remove port
+    e.target.value = val;
+  });
+
   document.getElementById('edit-quick-form').onsubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -941,6 +1122,7 @@ window.showEditQuickTunnelModal = (id) => {
     qt.hostname = formData.get('hostname');
     qt.port = parseInt(formData.get('port'));
     qt.no_tls_verify = formData.has('no_tls_verify');
+    qt.http_host_header = hostOverrideToggle.checked ? formData.get('http_host_header').trim() : '';
     qt.public_url = ''; // Reset public URL as it will change
     qt.status = 'stopped';
 
@@ -950,7 +1132,7 @@ window.showEditQuickTunnelModal = (id) => {
     // 4. Restart if it was running
     if (wasRunning) {
       qt.status = 'starting';
-      await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`, qt.no_tls_verify);
+      await api.startQuickTunnel(qt.id, qt.name, `${qt.protocol}://${qt.hostname}:${qt.port}`, qt.no_tls_verify, qt.http_host_header);
     }
 
     close();
@@ -1001,6 +1183,25 @@ function showAddQuickTunnelModal() {
                     <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Local Port</label>
                     <input type="number" name="port" required class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500/50 transition-colors" placeholder="8080">
                 </div>
+                <div class="space-y-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Enable Host Header Override</label>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="enable-host-override-add" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                        </label>
+                    </div>
+                    <div id="host-override-wrapper-add" class="hidden space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Host Header Override</label>
+                            <button type="button" id="btn-use-hostname-add" class="text-[9px] text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider">Use Hostname</button>
+                        </div>
+                        <input type="text" name="http_host_header" class="w-full bg-devops-dark border border-devops-border rounded-xl px-4 py-2 text-white text-xs focus:outline-none focus:border-devops-accent transition-colors" placeholder="contoh: www.google.com">
+                        <p class="text-[9px] text-slate-400 leading-tight">Ubah header Host yang dikirim ke server tujuan. Gunakan jika server membutuhkan domain tertentu agar dapat merespons dengan benar.</p>
+                    </div>
+                </div>
                 <div class="pt-4">
                     <button type="submit" class="w-full bg-yellow-500 text-black font-bold py-3 rounded-xl hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/10">
                         Launch Quick Tunnel
@@ -1021,6 +1222,28 @@ function showAddQuickTunnelModal() {
     noTlsWrapper.classList.toggle('hidden', e.target.value !== 'https');
   });
 
+  const hostOverrideToggle = modal.querySelector('#enable-host-override-add');
+  const hostOverrideWrapper = modal.querySelector('#host-override-wrapper-add');
+  const hostOverrideInput = modal.querySelector('input[name="http_host_header"]');
+  const useHostnameBtn = modal.querySelector('#btn-use-hostname-add');
+  const hostnameInput = modal.querySelector('input[name="hostname"]');
+
+  hostOverrideToggle.addEventListener('change', (e) => {
+    hostOverrideWrapper.classList.toggle('hidden', !e.target.checked);
+    if (!e.target.checked) hostOverrideInput.value = '';
+  });
+
+  useHostnameBtn.addEventListener('click', () => {
+    hostOverrideInput.value = hostnameInput.value;
+  });
+
+  // Validation
+  hostOverrideInput.addEventListener('input', (e) => {
+    let val = e.target.value.replace(/https?:\/\//i, ''); // Remove protocol
+    val = val.split(':')[0]; // Remove port
+    e.target.value = val;
+  });
+
   document.getElementById('add-quick-form').onsubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -1032,6 +1255,7 @@ function showAddQuickTunnelModal() {
       hostname: formData.get('hostname'),
       port: parseInt(formData.get('port')),
       no_tls_verify: formData.has('no_tls_verify'),
+      http_host_header: hostOverrideToggle.checked ? formData.get('http_host_header').trim() : '',
       public_url: '',
       status: 'stopped'
     };

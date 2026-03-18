@@ -25,6 +25,8 @@ pub struct QuickTunnelConfig {
     pub status: String,
     #[serde(default)]
     pub no_tls_verify: bool,
+    #[serde(default)]
+    pub http_host_header: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
